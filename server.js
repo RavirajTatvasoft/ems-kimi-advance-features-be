@@ -7,6 +7,7 @@ const connectDB = require('./config/database');
 const authRoutes = require('./routes/auth');
 const eventRoutes = require('./routes/events');
 const bookingRoutes = require('./routes/bookings');
+const seedRoutes = require('./routes/seed');
 
 // Initialize app
 const app = express();
@@ -15,7 +16,13 @@ const app = express();
 connectDB();
 
 // Middleware
-app.use(cors());
+// CORS configuration - allow all origins for maximum flexibility
+app.use(cors({
+  origin: true, // Allow all origins
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -23,6 +30,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/', authRoutes);
 app.use('/api', eventRoutes);
 app.use('/api', bookingRoutes);
+app.use('/api', seedRoutes);
 
 // Health check endpoint
 app.get('/', (req, res) => {
