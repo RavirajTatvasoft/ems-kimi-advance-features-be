@@ -30,9 +30,9 @@ router.post('/register', [
     const user = new User({ name, email, password });
     await user.save();
 
-    // Generate JWT token with user details
+    // Generate JWT token with user details and role
     const token = jwt.sign(
-      { userId: user._id, name: user.name, email: user.email },
+      { userId: user._id, name: user.name, email: user.email, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -42,7 +42,8 @@ router.post('/register', [
       user: {
         id: user._id,
         name: user.name,
-        email: user.email
+        email: user.email,
+        role: user.role
       }
     });
   } catch (error) {
@@ -76,9 +77,9 @@ router.post('/login', [
       return res.status(400).json({ message: 'Incorrect password. Please try again.' });
     }
 
-    // Generate JWT token with user details
+    // Generate JWT token with user details and role
     const token = jwt.sign(
-      { userId: user._id, name: user.name, email: user.email },
+      { userId: user._id, name: user.name, email: user.email, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -88,7 +89,8 @@ router.post('/login', [
       user: {
         id: user._id,
         name: user.name,
-        email: user.email
+        email: user.email,
+        role: user.role
       }
     });
   } catch (error) {
@@ -104,12 +106,65 @@ router.get('/me', auth, async (req, res) => {
       user: {
         id: req.user._id,
         name: req.user.name,
-        email: req.user.email
+        email: req.user.email,
+        role: req.user.role
       }
     });
   } catch (error) {
     console.error('Get user error:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin login endpoint
+router.post('/admin/login', [
+  body('email').isEmail().normalizeEmail().withMessage('Please enter a valid email'),
+  body('password').exists().withMessage('Password is required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ message: 'Validation failed', errors: errors.array() });
+    }
+
+    const { email, password } = req.body;
+
+    // Find user by email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid admin credentials' });
+    }
+
+    // Check password
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Invalid admin credentials' });
+    }
+
+    // Check if user is admin
+    if (user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied. Admin privileges required.' });
+    }
+
+    // Generate JWT token with user details and role
+    const token = jwt.sign(
+      { userId: user._id, name: user.name, email: user.email, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    console.error('Admin login error:', error);
+    res.status(500).json({ message: 'Server error during admin login' });
   }
 });
 

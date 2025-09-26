@@ -3,6 +3,7 @@ const { body, validationResult } = require('express-validator');
 const Booking = require('../models/Booking');
 const Event = require('../models/Event');
 const auth = require('../middleware/auth');
+const { sendBookingConfirmation, sendCancellationConfirmation } = require('../services/emailService');
 
 const router = express.Router();
 
@@ -74,9 +75,18 @@ router.post('/events/:id/book', [
     await booking.save();
     await event.save();
 
+    // Send confirmation email
+    try {
+      await sendBookingConfirmation(booking, event);
+    } catch (emailError) {
+      console.error('Failed to send booking confirmation email:', emailError);
+      // Don't fail the booking if email fails
+    }
+
     res.status(201).json({
       id: booking._id,
-      message: 'Booking confirmed successfully'
+      message: 'Booking confirmed successfully',
+      emailSent: process.env.NODE_ENV === 'production'
     });
   } catch (error) {
     console.error('Create booking error:', error);
@@ -91,17 +101,34 @@ router.get('/bookings', auth, async (req, res) => {
       .populate('event', 'name date location')
       .sort({ createdAt: -1 });
 
-    const formattedBookings = bookings.map(booking => ({
-      id: booking._id,
-      eventId: booking.event._id,
-      event_name: booking.event.name,
-      date: booking.event.date.toISOString(),
-      location: booking.event.location,
-      userName: booking.userName,
-      userEmail: booking.userEmail,
-      tickets: booking.tickets,
-      status: booking.status
-    }));
+    const formattedBookings = bookings.map(booking => {
+      // Handle cases where event might be deleted
+      let eventData = booking.event;
+      let eventDeleted = false;
+      
+      if (!eventData || !eventData._id) {
+        eventData = {
+          _id: 'deleted',
+          name: '[Event Deleted]',
+          date: booking.createdAt,
+          location: 'N/A'
+        };
+        eventDeleted = true;
+      }
+
+      return {
+        id: booking._id.toString(),
+        eventId: eventData._id.toString(),
+        event_name: eventData.name || '[Event Deleted]',
+        date: eventData.date?.toISOString() || booking.createdAt.toISOString(),
+        location: eventData.location || 'N/A',
+        userName: booking.userName,
+        userEmail: booking.userEmail,
+        tickets: booking.tickets,
+        status: booking.status,
+        eventDeleted: eventDeleted
+      };
+    });
 
     res.json({ data: formattedBookings });
   } catch (error) {
@@ -143,7 +170,19 @@ router.post('/bookings/:id/cancel', auth, async (req, res) => {
 
     await booking.save();
 
-    res.json({ success: true, message: 'Booking cancelled successfully' });
+    // Send cancellation email
+    try {
+      await sendCancellationConfirmation(booking, event);
+    } catch (emailError) {
+      console.error('Failed to send cancellation email:', emailError);
+      // Don't fail the cancellation if email fails
+    }
+
+    res.json({ 
+      success: true, 
+      message: 'Booking cancelled successfully',
+      emailSent: process.env.NODE_ENV === 'production'
+    });
   } catch (error) {
     console.error('Cancel booking error:', error);
     if (error.kind === 'ObjectId') {
