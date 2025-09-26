@@ -31,6 +31,36 @@ const eventSchema = new mongoose.Schema({
     type: String,
     trim: true,
     maxlength: [500, 'Description cannot exceed 500 characters']
+  },
+  seat_layout: {
+    rows: {
+      type: Number,
+      required: true,
+      min: 1
+    },
+    seats_per_row: {
+      type: Number,
+      required: true,
+      min: 1
+    },
+    sections: [{
+      name: {
+        type: String,
+        required: true
+      },
+      rows: {
+        type: [String],
+        required: true
+      },
+      price_multiplier: {
+        type: Number,
+        default: 1
+      }
+    }]
+  },
+  has_seat_selection: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true

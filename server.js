@@ -31,6 +31,7 @@ app.use('/', authRoutes);
 app.use('/api', eventRoutes);
 app.use('/api', bookingRoutes);
 app.use('/api', seedRoutes);
+app.use('/api', require('./routes/seats'));
 
 // Health check endpoint
 app.get('/', (req, res) => {

@@ -27,6 +27,16 @@ const bookingSchema = new mongoose.Schema({
     min: [1, 'Must book at least 1 ticket'],
     max: [10, 'Cannot book more than 10 tickets at once']
   },
+  seats: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Seat',
+    required: true
+  }],
+  totalAmount: {
+    type: Number,
+    required: true,
+    min: 0
+  },
   status: {
     type: String,
     enum: ['Confirmed', 'Cancelled'],
